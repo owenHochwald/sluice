@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package sluice.v1;
+
+option go_package = "github.com/owenhochwald/sluice/sluice-controller/internal/genproto";
+
+service ConfigStream {
+  rpc Watch(WatchRequest) returns (stream BackendSet);
+}
+
+message WatchRequest {}
+
+message Backend {
+  // "ip:port" of a single backend pod.
+  string address = 1;
+}
+
+message BackendSet {
+  uint64 version = 1;
+  repeated Backend backends = 2;
+}
