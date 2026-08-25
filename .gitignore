@@ -5,6 +5,7 @@ CLAUDE.md
 sluiced/build/
 /echod/echod
 /sluice-controller/sluice-controller
+/surge/surge
 
 # editor/tooling caches
 .cache/

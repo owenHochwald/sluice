@@ -1,0 +1,7 @@
+.git/
+sluiced/build/
+sluiced/src/
+sluiced/include/
+sluiced/test/
+docs/
+*.md
