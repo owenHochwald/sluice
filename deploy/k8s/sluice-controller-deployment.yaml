@@ -1,0 +1,60 @@
+# replicas: 1 — no leader election exists. Running >1 would be
+# architecturally harmless (the control plane always emits full state, never
+# deltas, so two independent instances converge on the same backend set and
+# would each correctly serve any data plane that connects to them), but
+# nothing exercises that yet since sluiced doesn't exist to connect. 1 is the
+# honest choice today, not a limitation being worked around.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sluice-controller
+  namespace: sluice-demo
+  labels:
+    app: sluice-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sluice-controller
+  template:
+    metadata:
+      labels:
+        app: sluice-controller
+    spec:
+      serviceAccountName: sluice-controller
+      containers:
+        - name: sluice-controller
+          image: sluice/sluice-controller:dev
+          imagePullPolicy: Never
+          args:
+            - -namespace=sluice-demo
+            - -service=echod
+            - -listen=:9090
+            - -http=:8080
+          ports:
+            - name: grpc
+              containerPort: 9090
+            - name: http
+              containerPort: 8080
+          # Readiness only, not liveness: this handler reports not-ready
+          # until the informer cache has synced (docs/SPEC.md CP-U-06), which
+          # reflects API-server catch-up time, not process health. Wiring it
+          # as a liveness probe too would restart a controller that's simply
+          # waiting on a slow API server, which is exactly the wrong reaction.
+          readinessProbe:
+            # main.go wires readyzHandler directly as the http.Server's
+            # Handler with no ServeMux, so it answers on every path — "/"
+            # documents that actual behavior rather than implying a
+            # "/readyz" route that doesn't structurally exist.
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 1
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi

@@ -1,0 +1,54 @@
+# Mock TCP backend, horizontally scaled (docs/SPEC.md BE-U-03). This
+# Deployment's Service (echod-service.yaml) is what sluice-controller
+# discovers via the EndpointSlice Kubernetes creates for it, and what surge
+# targets directly today, since sluiced doesn't exist yet to sit in front of
+# it — that makes surge-against-this-Service the kube-proxy baseline sluiced
+# will later be measured against.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echod
+  namespace: sluice-demo
+  labels:
+    app: echod
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: echod
+  template:
+    metadata:
+      labels:
+        app: echod
+    spec:
+      containers:
+        - name: echod
+          image: sluice/echod:dev
+          imagePullPolicy: Never # image is loaded locally via `kind load docker-image`, never pulled from a registry
+          args:
+            - -listen=:7000
+            - -admin-listen=:7001
+          ports:
+            - name: echo
+              containerPort: 7000
+            - name: admin
+              containerPort: 7001
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: admin
+            initialDelaySeconds: 1
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: admin
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi

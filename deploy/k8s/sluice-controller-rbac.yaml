@@ -1,0 +1,38 @@
+# Least-privilege in-cluster access for sluice-controller: a namespaced
+# Role, not a ClusterRole. This isn't a preference, it matches the code as
+# written — sluice-controller/main.go's buildClient defaults to
+# rest.InClusterConfig() whenever -kubeconfig is unset (a hard signal it's
+# meant to run as an in-cluster ServiceAccount), and controller.Run scopes
+# every List/Watch to a single -namespace flag via
+# informers.WithNamespace(...). The controller structurally never touches
+# more than one namespace, so a ClusterRole would grant strictly more
+# privilege than the code can ever use.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sluice-controller
+  namespace: sluice-demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sluice-controller
+  namespace: sluice-demo
+rules:
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sluice-controller
+  namespace: sluice-demo
+subjects:
+  - kind: ServiceAccount
+    name: sluice-controller
+    namespace: sluice-demo
+roleRef:
+  kind: Role
+  name: sluice-controller
+  apiGroup: rbac.authorization.k8s.io

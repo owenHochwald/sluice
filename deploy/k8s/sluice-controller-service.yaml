@@ -1,0 +1,22 @@
+# grpc (9090) has no consumer yet — nothing connects to it since sluiced
+# doesn't exist — but it costs nothing to deploy alongside the control plane
+# it belongs to, and it's the DNS name (sluice-controller.sluice-demo.svc.
+# cluster.local:9090) a future sluiced will target. http (8080) is used by
+# `make cluster`'s verification step.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sluice-controller
+  namespace: sluice-demo
+  labels:
+    app: sluice-controller
+spec:
+  selector:
+    app: sluice-controller
+  ports:
+    - name: grpc
+      port: 9090
+      targetPort: grpc
+    - name: http
+      port: 8080
+      targetPort: http

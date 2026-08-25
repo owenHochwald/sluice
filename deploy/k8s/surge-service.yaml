@@ -1,0 +1,19 @@
+# Load-balances /results across the 2 replicas for ad hoc checking — a curl
+# hitting either one is fine here (unlike echod's admin case) because each
+# surge replica's results are independently meaningful: each ran its own
+# full benchmark. A human wanting one specific replica's results uses
+# `kubectl port-forward pod/<name> 7002:7002` instead.
+apiVersion: v1
+kind: Service
+metadata:
+  name: surge
+  namespace: sluice-demo
+  labels:
+    app: surge
+spec:
+  selector:
+    app: surge
+  ports:
+    - name: admin
+      port: 7002
+      targetPort: admin

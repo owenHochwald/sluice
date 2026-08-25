@@ -1,0 +1,18 @@
+# Only exposes the echo port (7000), deliberately not the admin port (7001):
+# load-balancing POST /config across replicas would silently fault-inject
+# one random pod while a human thinks they configured "the backend." Admin
+# access stays per-pod via `kubectl port-forward pod/<name> 7001:7001`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: echod
+  namespace: sluice-demo
+  labels:
+    app: echod
+spec:
+  selector:
+    app: echod
+  ports:
+    - name: echo
+      port: 7000
+      targetPort: echo

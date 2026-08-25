@@ -1,0 +1,58 @@
+# replicas: 2 for docs/SPEC.md LG-U-06's horizontal-scaling demo. Each
+# replica runs its own independent full benchmark window against echod's
+# Service, then stays Running serving its results (see surge/main.go) —
+# no Job, no restart-loop risk.
+#
+# -duration=10s here is a deliberate smoke-test override, shorter than the
+# surge binary's own 30s default: this manifest exists so `make cluster`'s
+# verification step finishes fast and deterministically, not to produce a
+# real benchmark number. Real runs mean editing -duration/-rate by hand
+# (no templating here, consistent with no-Helm/kustomize).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: surge
+  namespace: sluice-demo
+  labels:
+    app: surge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: surge
+  template:
+    metadata:
+      labels:
+        app: surge
+    spec:
+      containers:
+        - name: surge
+          image: sluice/surge:dev
+          imagePullPolicy: Never
+          args:
+            - -target=echod.sluice-demo.svc.cluster.local:7000
+            - -admin-listen=:7002
+            - -results-dir=/tmp/surge
+            - -duration=10s
+          ports:
+            - name: admin
+              containerPort: 7002
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: admin
+            initialDelaySeconds: 1
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: admin
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
