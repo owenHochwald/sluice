@@ -1,2 +1,10 @@
 docs/
 CLAUDE.md
+
+# build outputs
+sluiced/build/
+/echod/echod
+/sluice-controller/sluice-controller
+
+# editor/tooling caches
+.cache/
