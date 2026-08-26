@@ -59,8 +59,11 @@ file(GLOB SLUICED_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 if(SLUICED_SRC)
   add_executable(sluiced ${SLUICED_SRC})
   target_link_libraries(sluiced PRIVATE sluiced_headers Threads::Threads)
+  # config_stream.cpp compiles its gRPC Watch() client only when the generated
+  # stubs are available; otherwise it serves the bootstrap set fail-static.
   if(TARGET sluiced_configpb)
     target_link_libraries(sluiced PRIVATE sluiced_configpb)
+    target_compile_definitions(sluiced PRIVATE SLUICE_HAVE_GRPC)
   endif()
 else()
   message(STATUS "sluiced: src/ is empty, not building the sluiced binary yet (see ROADMAP.md)")
@@ -79,10 +82,15 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 add_executable(sluiced_test
   test/test_smoke.cpp
   test/test_maglev.cpp
+  test/test_router.cpp
+  test/test_stats.cpp
+  test/test_health.cpp
   src/maglev.cpp
-  src/connection.cpp
+  src/router.cpp
+  src/stats.cpp
+  src/health_checker.cpp
 )
-target_link_libraries(sluiced_test PRIVATE sluiced_headers Catch2::Catch2WithMain)
+target_link_libraries(sluiced_test PRIVATE sluiced_headers Threads::Threads Catch2::Catch2WithMain)
 
 include(CTest)
 include(Catch)
