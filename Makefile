@@ -1,30 +1,67 @@
-.PHONY: build build-go build-cpp test test-go test-cpp e2e bench leakcheck cluster \
+.PHONY: build build-go build-cpp test test-go test-cpp cpp-build-image e2e bench leakcheck cluster \
+	bench-go-bins bench-prereqs \
 	cluster-up cluster-build cluster-load cluster-apply cluster-verify cluster-down
 
-KIND_CLUSTER ?= sluice
-NAMESPACE    ?= sluice-demo
-IMG_TAG      ?= dev
+KIND_CLUSTER   ?= sluice
+NAMESPACE      ?= sluice-demo
+IMG_TAG        ?= dev
+CPP_BUILD_IMAGE ?= sluice/cpp-build:dev
 
 build: build-go build-cpp
 
 build-go:
 	go build ./...
 
-build-cpp:
-	cmake -S sluiced -B sluiced/build -DCMAKE_BUILD_TYPE=Debug
-	cmake --build sluiced/build
+# sluiced targets Linux's epoll (see sluiced/event_loop.hpp) and ships in
+# Linux containers anyway (see deploy/), so it's built and tested inside
+# sluiced/Dockerfile.dev rather than natively — that keeps this working the
+# same way on a Linux host or a macOS one. Source is bind-mounted, not
+# baked into the image, so a normal edit/rebuild loop doesn't rebuild it.
+DOCKER_RUN_CPP = docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR):/workspace -w /workspace $(CPP_BUILD_IMAGE)
+
+cpp-build-image:
+	docker build -f sluiced/Dockerfile.dev -t $(CPP_BUILD_IMAGE) sluiced
+
+build-cpp: cpp-build-image
+	$(DOCKER_RUN_CPP) sh -c "cmake -S sluiced -B sluiced/build -DCMAKE_BUILD_TYPE=Debug && cmake --build sluiced/build"
 
 test: test-go test-cpp
 
 test-go:
 	go test ./...
 
-test-cpp: build-cpp
-	ctest --test-dir sluiced/build --output-on-failure
+# Builds+runs only the sluiced_test target, not the full build-cpp. The
+# `sluiced` binary itself has no main() yet (that lands with event_loop.cpp
+# — see ROADMAP.md) and won't link; that's an expected, staged gap, not a
+# reason for `make test` to fail on work that's actually testable today.
+test-cpp: cpp-build-image
+	$(DOCKER_RUN_CPP) sh -c "cmake -S sluiced -B sluiced/build -DCMAKE_BUILD_TYPE=Debug && cmake --build sluiced/build --target sluiced_test && ctest --test-dir sluiced/build --output-on-failure"
 
-e2e bench leakcheck:
-	@echo "$@: blocked on sluiced/src implementation — see sluiced/ROADMAP.md" >&2
-	@exit 1
+# The benchmark harness runs echod + sluiced + surge together in one Linux
+# container so everything talks over localhost. sluiced is a Linux/epoll binary
+# built by build-cpp; the Go tools are cross-compiled to Linux to match the
+# container arch, then all four binaries run inside the cpp-build image.
+GOARCH_LINUX ?= $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+
+bench-go-bins:
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH_LINUX) go build -o bench/bin/echod ./echod
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH_LINUX) go build -o bench/bin/surge ./surge
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH_LINUX) go build -o bench/bin/adminget ./bench/adminget
+
+# Shared prerequisites for every harness target: the C++ binary and the Go
+# tools, both built for Linux.
+bench-prereqs: build-cpp bench-go-bins
+
+BENCH_RUN = docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR):/workspace -w /workspace $(CPP_BUILD_IMAGE) bash
+
+e2e: bench-prereqs
+	$(BENCH_RUN) bench/e2e.sh
+
+bench: bench-prereqs
+	$(BENCH_RUN) bench/run.sh
+
+leakcheck: bench-prereqs
+	$(BENCH_RUN) bench/leakcheck.sh
 
 cluster: cluster-up cluster-build cluster-load cluster-apply cluster-verify
 
