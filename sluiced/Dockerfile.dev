@@ -1,0 +1,14 @@
+# Build/test toolchain for sluiced's C++ side. sluiced is written against
+# Linux's epoll (see event_loop.hpp) and ships in Linux containers anyway
+# (see deploy/), so this is where `make build-cpp` / `make test-cpp` actually
+# compile it, whether the host is Linux or not.
+#
+# Source is bind-mounted in at run time (see Makefile), not COPY'd here, so
+# editing a .cpp file never requires rebuilding this image.
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
