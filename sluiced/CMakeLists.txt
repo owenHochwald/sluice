@@ -78,9 +78,9 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
 add_executable(sluiced_test
   test/test_smoke.cpp
-  # TODO(owen): uncomment once src/maglev.cpp exists — this test is written
-  # and waiting, see test/test_maglev.cpp and ROADMAP.md.
-  # test/test_maglev.cpp
+  test/test_maglev.cpp
+  src/maglev.cpp
+  src/connection.cpp
 )
 target_link_libraries(sluiced_test PRIVATE sluiced_headers Catch2::Catch2WithMain)
 
