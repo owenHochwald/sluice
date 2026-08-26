@@ -1,0 +1,18 @@
+# Front door for the data plane: surge targets this Service, kube-proxy spreads
+# those connections across the sluiced pods, and each sluiced pod then does the
+# intelligent balancing on to echod. (kube-proxy in front of sluiced is fine -
+# the thesis is about sluiced -> echod bypassing kube-proxy, not surge -> sluiced.)
+apiVersion: v1
+kind: Service
+metadata:
+  name: sluiced
+  namespace: sluice-demo
+  labels:
+    app: sluiced
+spec:
+  selector:
+    app: sluiced
+  ports:
+    - name: proxy
+      port: 8080
+      targetPort: proxy

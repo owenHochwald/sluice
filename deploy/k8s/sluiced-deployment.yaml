@@ -1,0 +1,61 @@
+# The data plane. Each pod connects to sluice-controller's ConfigStream over
+# gRPC, receives the set of echod pod IPs, and load-balances client traffic
+# straight to those pods - bypassing kube-proxy, which is the whole point.
+#
+# No bootstrap file is baked in: pod IPs aren't known at build time, so sluiced
+# starts with an empty backend set and fills it within ~1s of the controller
+# connecting. If the controller later dies, sluiced keeps serving the last set
+# (fail-static). No RBAC/ServiceAccount: sluiced never talks to the API server,
+# only to the controller.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sluiced
+  namespace: sluice-demo
+  labels:
+    app: sluiced
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sluiced
+  template:
+    metadata:
+      labels:
+        app: sluiced
+    spec:
+      containers:
+        - name: sluiced
+          image: sluice/sluiced:dev
+          imagePullPolicy: Never # loaded locally via `kind load docker-image`
+          # sluiced's flag parser takes "--flag value" (space-separated), so
+          # each token is its own args entry.
+          args:
+            - --listen-port
+            - "8080"
+            - --workers
+            - "2"
+            - --controller
+            - sluice-controller.sluice-demo.svc.cluster.local:9090
+            - --admin-socket
+            - /tmp/sluiced.sock
+            - --health-interval-ms
+            - "1000"
+          ports:
+            - name: proxy
+              containerPort: 8080
+          # tcpSocket only: sluiced accepts as soon as it's listening. It has
+          # no HTTP health endpoint (the admin surface is a Unix socket), and
+          # the controller fills the backend set within a second regardless.
+          readinessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
