@@ -25,6 +25,14 @@ public:
   [[nodiscard]] int ClientFd() const noexcept { return client_fd_; }
   [[nodiscard]] int UpstreamFd() const noexcept { return upstream_fd_; }
 
+  // Optional per-direction byte counters, owned by the EventLoop (DP-U-15).
+  // c2u counts bytes written to upstream, u2c bytes written to the client.
+  // Incremented from this loop's thread only; read elsewhere approximately.
+  void SetByteSinks(std::uint64_t* c2u, std::uint64_t* u2c) noexcept {
+    c2u_.bytes = c2u;
+    u2c_.bytes = u2c;
+  }
+
 private:
   // 16 KiB is a common TCP socket buffer size — big enough that a single
   // read() usually drains what the kernel has, small enough that two of
@@ -40,6 +48,7 @@ private:
     std::size_t offset = 0;     // bytes of buf[0, len) already written
     bool source_eof = false;    // source hit EOF or a read error
     bool sink_shutdown = false; // we've shutdown(SHUT_WR) the sink already
+    std::uint64_t* bytes = nullptr; // optional forwarded-byte counter (DP-U-15)
   };
 
   // read_fd is readable: pull bytes into dir and try to forward them.

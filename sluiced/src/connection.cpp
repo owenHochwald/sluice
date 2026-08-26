@@ -89,6 +89,7 @@ void Connection::TryFlush(int source_fd, int sink_fd, Direction& dir) noexcept {
         ssize_t n = ::write(sink_fd, dir.buf.data() + dir.offset, dir.len - dir.offset);
         if (n >= 0) {
             dir.offset += static_cast<std::size_t>(n);
+            if (dir.bytes) *dir.bytes += static_cast<std::uint64_t>(n);
             continue;
         }
         if (errno == EINTR) continue;
