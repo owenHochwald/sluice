@@ -70,28 +70,33 @@ else()
 endif()
 
 # --- tests ------------------------------------------------------------
-include(FetchContent)
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG v3.7.1
-)
-FetchContent_MakeAvailable(Catch2)
-list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+# Off in the production image build (deploy/docker/sluiced.Dockerfile), so it
+# never has to fetch Catch2 over the network to ship the binary.
+option(SLUICE_BUILD_TESTS "Build the unit tests" ON)
+if(SLUICE_BUILD_TESTS)
+  include(FetchContent)
+  FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.7.1
+  )
+  FetchContent_MakeAvailable(Catch2)
+  list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
-add_executable(sluiced_test
-  test/test_smoke.cpp
-  test/test_maglev.cpp
-  test/test_router.cpp
-  test/test_stats.cpp
-  test/test_health.cpp
-  src/maglev.cpp
-  src/router.cpp
-  src/stats.cpp
-  src/health_checker.cpp
-)
-target_link_libraries(sluiced_test PRIVATE sluiced_headers Threads::Threads Catch2::Catch2WithMain)
+  add_executable(sluiced_test
+    test/test_smoke.cpp
+    test/test_maglev.cpp
+    test/test_router.cpp
+    test/test_stats.cpp
+    test/test_health.cpp
+    src/maglev.cpp
+    src/router.cpp
+    src/stats.cpp
+    src/health_checker.cpp
+  )
+  target_link_libraries(sluiced_test PRIVATE sluiced_headers Threads::Threads Catch2::Catch2WithMain)
 
-include(CTest)
-include(Catch)
-catch_discover_tests(sluiced_test)
+  include(CTest)
+  include(Catch)
+  catch_discover_tests(sluiced_test)
+endif()
