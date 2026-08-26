@@ -73,9 +73,10 @@ cluster-build:
 	docker build -f deploy/docker/go-service.Dockerfile --build-arg COMPONENT=echod -t sluice/echod:$(IMG_TAG) .
 	docker build -f deploy/docker/go-service.Dockerfile --build-arg COMPONENT=sluice-controller -t sluice/sluice-controller:$(IMG_TAG) .
 	docker build -f deploy/docker/go-service.Dockerfile --build-arg COMPONENT=surge -t sluice/surge:$(IMG_TAG) .
+	docker build -f deploy/docker/sluiced.Dockerfile -t sluice/sluiced:$(IMG_TAG) .
 
 cluster-load:
-	kind load docker-image sluice/echod:$(IMG_TAG) sluice/sluice-controller:$(IMG_TAG) sluice/surge:$(IMG_TAG) --name $(KIND_CLUSTER)
+	kind load docker-image sluice/echod:$(IMG_TAG) sluice/sluice-controller:$(IMG_TAG) sluice/surge:$(IMG_TAG) sluice/sluiced:$(IMG_TAG) --name $(KIND_CLUSTER)
 
 cluster-apply:
 	# namespace first and separately: kubectl apply -f <dir> applies files in
@@ -84,11 +85,14 @@ cluster-apply:
 	kubectl apply -f deploy/k8s/
 	kubectl -n $(NAMESPACE) rollout status deployment/echod --timeout=120s
 	kubectl -n $(NAMESPACE) rollout status deployment/sluice-controller --timeout=120s
+	# sluiced before surge: surge targets the sluiced Service.
+	kubectl -n $(NAMESPACE) rollout status deployment/sluiced --timeout=120s
 	kubectl -n $(NAMESPACE) rollout status deployment/surge --timeout=180s
 
 cluster-verify:
 	kubectl -n $(NAMESPACE) wait --for=condition=Ready pod -l app=echod --timeout=120s
 	kubectl -n $(NAMESPACE) wait --for=condition=Ready pod -l app=sluice-controller --timeout=120s
+	kubectl -n $(NAMESPACE) wait --for=condition=Ready pod -l app=sluiced --timeout=120s
 	kubectl -n $(NAMESPACE) wait --for=condition=Ready pod -l app=surge --timeout=180s
 	kubectl -n $(NAMESPACE) run verify --rm -i --restart=Never --image=curlimages/curl:8.10.1 -- \
 		sh -c 'curl -sf http://sluice-controller:8080/ && curl -sf http://surge:7002/results | grep -q "\"totalIssued\""'
