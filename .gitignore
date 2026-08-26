@@ -7,5 +7,10 @@ sluiced/build/
 /sluice-controller/sluice-controller
 /surge/surge
 
+# benchmark harness artifacts (cross-compiled bins, generated config, outputs)
+bench/bin/
+bench/backends*.conf
+bench/results/
+
 # editor/tooling caches
 .cache/
