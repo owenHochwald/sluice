@@ -1,7 +1,9 @@
+# sluiced/src, include, and test are intentionally NOT ignored: the production
+# image (deploy/docker/sluiced.Dockerfile) COPYs and compiles them. Only the
+# local build tree is excluded. The Go-service build ignores these files.
 .git/
 sluiced/build/
-sluiced/src/
-sluiced/include/
-sluiced/test/
+bench/bin/
+bench/results/
 docs/
 *.md
