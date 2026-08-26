@@ -1,5 +1,6 @@
 #include "sluiced/maglev.hpp"
 #include <cstdint>
+#include <limits>
 #include <span>
 
 namespace sluiced {
