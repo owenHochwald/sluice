@@ -49,12 +49,13 @@ private:
   void TryFlush(int source_fd, int sink_fd, Direction &dir) noexcept;
   // Once a direction's source is at EOF and everything it sent has been
   // written out, propagate the half-close and check for full completion.
-  void MaybeHalfClose(int source_fd, int sink_fd, Direction &dir) noexcept;
+  void MaybeHalfClose(int sink_fd, Direction &dir) noexcept;
   // Both directions half-closed: close both fds, exactly once.
   void MaybeFinish() noexcept;
 
   // epoll interest bookkeeping — see connection.cpp for why each fd needs
   // its own independently-tracked bitmask.
+  void Register(int fd) noexcept;  // first-time epoll_ctl(ADD), watch for readable
   void ArmRead(int fd) noexcept;
   void StopReading(int fd) noexcept;
   void ArmWrite(int fd) noexcept;
